@@ -65,9 +65,20 @@ docker compose up -d --build
 
 ---
 
-## 📂 3. Ma'lumotlar xavfsizligi va testlarni yangilash
+## 📂 3. Ma'lumotlar xavfsizligi va testlarni saqlash
 
 Konteyner ichidagi ma'lumotlar hostdagi (`/opt/huquq_test_bot/`) papkalarga bog'langan (Docker Volume):
 - `data/natijalar.db` — O'quvchilar natijalari saqlanadigan SQLite bazasi. Konteyner o'chsa yoki yangilansa ham ma'lumotlar o'chib ketmaydi.
-- `tests/` — Testlar papkasi. Yangi `.json` test qo'shish uchun shunchaki shu papkaga tashlang va Telegramda adminga **/yangilash** buyrug'ini yuboring (konteynerni restart qilish shart emas!).
+- `tests/` — Testlar papkasi.
 - `admins.txt` — Adminlar ro'yxati.
+
+---
+
+## 👑 4. Admin Paneli orqali Test Yuklash va Boshqarish
+
+Serverga kirmasdan to'g'ridan-to'g'ri Telegram orqali testlarni boshqarishingiz mumkin.
+Botga **/admin** buyrug'ini yuboring:
+1. **📥 Yangi test yuklash (.json):** Test savollari yozilgan `.json` faylini Telegram orqali botga yuborasiz. Bot strukturani to'liq tekshiradi (xatolari bo'lsa ko'rsatadi), `tests/` papkasiga saqlaydi va bir zumda testni botda faollashtiradi.
+2. **📄 Namuna JSON yuklab olish:** Test formatini to'g'ri tuzish uchun namunaviy `.json` faylini Telegramda yuklab olish imkoniyati.
+3. **📋 Mavjud testlar ro'yxati:** Barcha testlarni ko'rish va kerak bo'lmaganlarini bitta tugma bilan o'chirish.
+4. **📈 Statistika:** Foydalanuvchilar va test urinishlari statistikasi.
