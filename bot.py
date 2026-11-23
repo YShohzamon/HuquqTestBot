@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import random
+import re
 import sqlite3
 import time
 from pathlib import Path
@@ -23,8 +24,11 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
     BotCommand,
+    BufferedInputFile,
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -489,7 +493,349 @@ async def cmd_rating(message: Message) -> None:
         await message.answer(part)
 
 
-# --- Admin buyruqlari -------------------------------------------------------
+# --- Admin FSM va Boshqaruv Paneli ----------------------------------------
+class AdminStates(StatesGroup):
+    waiting_for_json = State()
+
+
+SAMPLE_TEST_DATA = {
+    "nomi": "Konstitutsiyaviy huquq asoslari (Namuna)",
+    "vaqt_daqiqa": 15,
+    "savollar": [
+        {
+            "savol": "O'zbekiston Respublikasining yangi tahrirdagi Konstitutsiyasi qachon qabul qilingan?",
+            "variantlar": [
+                "1992-yil 8-dekabrda",
+                "2023-yil 30-aprelda",
+                "2021-yil 24-oktyabrda",
+                "2017-yil 7-fevralda"
+            ],
+            "togri": 1,
+            "izoh": "Yangi tahrirdagi Konstitutsiya 2023-yil 30-aprel kuni referendum orqali qabul qilingan."
+        },
+        {
+            "savol": "Konstitutsiyaga ko'ra O'zbekistonda davlat hokimiyatining birdan bir manbai kim?",
+            "variantlar": [
+                "Prezident",
+                "Oliy Majlis",
+                "Xalq",
+                "Vazirlar Mahkamasi"
+            ],
+            "togri": 2,
+            "izoh": "Konstitutsiyaning 7-moddasiga ko'ra, xalq davlat hokimiyatining birdan bir manbaidir."
+        }
+    ]
+}
+
+
+def admin_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📥 Yangi test yuklash (.json)", callback_data="adm:upload")],
+            [InlineKeyboardButton(text="📄 Namuna JSON yuklab olish", callback_data="adm:sample")],
+            [InlineKeyboardButton(text="📋 Mavjud testlar ro'yxati", callback_data="adm:list")],
+            [
+                InlineKeyboardButton(text="📈 Statistika", callback_data="adm:stats"),
+                InlineKeyboardButton(text="🔄 Yangilash", callback_data="adm:reload"),
+            ],
+            [InlineKeyboardButton(text="❌ Yopish", callback_data="adm:close")],
+        ]
+    )
+
+
+@dp.message(Command("admin"))
+async def cmd_admin(message: Message, state: FSMContext) -> None:
+    if not is_admin(message):
+        return
+    await state.clear()
+    await message.answer(
+        "🛠 <b>Boshqaruv paneli (Admin)</b>\n\n"
+        "Quyidagi menyu orqali botga yangi test qo'shishingiz, "
+        "namuna yuklab olishingiz yoki mavjud testlarni boshqarishingiz mumkin:",
+        reply_markup=admin_keyboard(),
+    )
+
+
+@dp.callback_query(F.data == "adm:menu")
+async def cb_admin_menu(call: CallbackQuery, state: FSMContext) -> None:
+    if not (call.from_user and call.from_user.id in ADMIN_IDS):
+        await call.answer("Ruxsat berilmagan.", show_alert=True)
+        return
+    await state.clear()
+    await call.message.edit_text(
+        "🛠 <b>Boshqaruv paneli (Admin)</b>\n\n"
+        "Quyidagi menyu orqali kerakli bo'limni tanlang:",
+        reply_markup=admin_keyboard(),
+    )
+    await call.answer()
+
+
+@dp.callback_query(F.data == "adm:sample")
+async def cb_admin_sample(call: CallbackQuery) -> None:
+    if not (call.from_user and call.from_user.id in ADMIN_IDS):
+        await call.answer("Ruxsat berilmagan.", show_alert=True)
+        return
+
+    json_bytes = json.dumps(SAMPLE_TEST_DATA, ensure_ascii=False, indent=2).encode("utf-8")
+    sample_file = BufferedInputFile(json_bytes, filename="namuna_test.json")
+
+    await call.message.answer_document(
+        document=sample_file,
+        caption=(
+            "📄 <b>Namuna JSON fayli</b>\n\n"
+            "Ushbu faylni yuklab olib, o'z test savollaringizni shu formatda kiriting:\n"
+            "• <code>nomi</code>: Test mavzusi nomi\n"
+            "• <code>vaqt_daqiqa</code>: Ajratilgan vaqt (0 bo'lsa cheklanmagan)\n"
+            "• <code>savollar</code>: Savollar ro'yxati\n"
+            "• <code>togri</code>: To'g'ri javob indeksi (0=A, 1=B, 2=C, 3=D)\n"
+            "• <code>izoh</code>: Savol tahlili yoki modda (ixtiyoriy)\n\n"
+            "Tayyor bo'lgach, 'Yangi test yuklash' orqali botga yuboring."
+        ),
+    )
+    await call.answer()
+
+
+@dp.callback_query(F.data == "adm:upload")
+async def cb_admin_upload(call: CallbackQuery, state: FSMContext) -> None:
+    if not (call.from_user and call.from_user.id in ADMIN_IDS):
+        await call.answer("Ruxsat berilmagan.", show_alert=True)
+        return
+
+    await state.set_state(AdminStates.waiting_for_json)
+    cancel_kb = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="🔙 Bekor qilish", callback_data="adm:menu")]]
+    )
+    await call.message.edit_text(
+        "📥 <b>Yangi test yuklash</b>\n\n"
+        "Iltimos, tayyorlangan <b>.json</b> faylni Telegram orqali hujjat (fayl) ko'rinishida yuboring.\n\n"
+        "<i>Bekor qilish uchun pastdagi tugmani bosing yoki /cancel yozing.</i>",
+        reply_markup=cancel_kb,
+    )
+    await call.answer()
+
+
+@dp.message(AdminStates.waiting_for_json, F.document)
+async def process_test_upload(message: Message, state: FSMContext, bot: Bot) -> None:
+    if not is_admin(message):
+        return
+
+    doc = message.document
+    if not doc.file_name or not doc.file_name.lower().endswith(".json"):
+        await message.answer("⚠ Iltimos, faqat <b>.json</b> formatidagi fayl yuboring!")
+        return
+
+    try:
+        # Faylni yuklab olish
+        file_io = await bot.download(doc.file_id)
+        raw_content = file_io.read().decode("utf-8")
+        data = json.loads(raw_content)
+
+        # 1. Struktura tekshiruvi
+        if not isinstance(data, dict):
+            raise ValueError("JSON fayl asosiy obyekti dict ({}) ko'rinishida bo'lishi kerak.")
+
+        nomi = str(data.get("nomi", "")).strip()
+        if not nomi:
+            raise ValueError("'nomi' maydoni kiritilmagan yoki bo'sh.")
+
+        vaqt = int(data.get("vaqt_daqiqa", 0))
+        savollar = data.get("savollar")
+        if not isinstance(savollar, list) or len(savollar) == 0:
+            raise ValueError("'savollar' ro'yxati topilmadi yoki bo'sh.")
+
+        # 2. Har bir savolni tekshirish
+        for i, s in enumerate(savollar, 1):
+            if not isinstance(s, dict):
+                raise ValueError(f"{i}-savol noto'g'ri shakllantirilgan.")
+            q_text = str(s.get("savol", "")).strip()
+            if not q_text:
+                raise ValueError(f"{i}-savolda 'savol' matni bo'sh.")
+            variantlar = s.get("variantlar")
+            if not isinstance(variantlar, list) or len(variantlar) < 2:
+                raise ValueError(f"{i}-savolda 'variantlar' kamida 2 ta bo'lishi kerak.")
+            togri = s.get("togri")
+            if togri is None or not str(togri).isdigit() or not (0 <= int(togri) < len(variantlar)):
+                raise ValueError(f"{i}-savolda 'togri' javob indeksi noto'g'ri (0 dan {len(variantlar)-1} gacha bo'lishi kerak).")
+
+        # 3. Faylni xavfsiz nom bilan saqlash
+        safe_name = Path(doc.file_name).stem
+        safe_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", safe_name).strip("_") or "test"
+        final_file_name = f"{safe_name}.json"
+
+        # Dublikat nom bo'lsa son qo'shish
+        target_path = TESTS_DIR / final_file_name
+        counter = 1
+        while target_path.exists():
+            # Agar bir xil fayl qayta yuklansa yoki yangilanayotgan bo'lsa
+            final_file_name = f"{safe_name}_{counter}.json"
+            target_path = TESTS_DIR / final_file_name
+            counter += 1
+
+        target_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        # 4. Bot xotirasidagi testlarni qayta yuklash
+        load_tests()
+        await state.clear()
+
+        await message.answer(
+            f"✅ <b>Yangi test muvaffaqiyatli saqlandi va faollashtirildi!</b>\n\n"
+            f"📘 <b>Nomi:</b> {html.escape(nomi)}\n"
+            f"❓ <b>Savollar soni:</b> {len(savollar)} ta\n"
+            f"⏱ <b>Ajratilgan vaqt:</b> {vaqt if vaqt else 'Cheklanmagan'} daqiqa\n"
+            f"📁 <b>Fayl:</b> <code>tests/{final_file_name}</code>",
+            reply_markup=admin_keyboard(),
+        )
+
+    except Exception as e:
+        log.warning("Admin JSON yuklashda xatolik: %s", e)
+        await message.answer(
+            f"❌ <b>Faylda xatolik aniqlandi:</b>\n<code>{html.escape(str(e))}</code>\n\n"
+            "Iltimos, faylni to'g'rilab qaytadan yuboring yoki /cancel bosing."
+        )
+
+
+@dp.message(AdminStates.waiting_for_json, Command("cancel"))
+async def cancel_upload_cmd(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await message.answer("❌ Yuklash bekor qilindi.", reply_markup=admin_keyboard())
+
+
+@dp.callback_query(F.data == "adm:list")
+async def cb_admin_list(call: CallbackQuery) -> None:
+    if not (call.from_user and call.from_user.id in ADMIN_IDS):
+        await call.answer("Ruxsat berilmagan.", show_alert=True)
+        return
+
+    if not TESTS:
+        await call.message.edit_text(
+            "📋 <b>Hozirda hech qanday test mavjud emas.</b>",
+            reply_markup=admin_keyboard(),
+        )
+        return
+
+    rows = []
+    for t_id, t in TESTS.items():
+        rows.append([
+            InlineKeyboardButton(text=f"📘 {t['nomi']} ({len(t['savollar'])} ta)", callback_data="noop"),
+            InlineKeyboardButton(text="🗑 O'chirish", callback_data=f"adm:del:{t_id}"),
+        ])
+    rows.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="adm:menu")])
+
+    await call.message.edit_text(
+        "📋 <b>Mavjud testlar ro'yxati:</b>\n"
+        "Testni o'chirish uchun uning yonidagi '🗑 O'chirish' tugmasini bosing:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+    )
+    await call.answer()
+
+
+@dp.callback_query(F.data.startswith("adm:del:"))
+async def cb_admin_del(call: CallbackQuery) -> None:
+    if not (call.from_user and call.from_user.id in ADMIN_IDS):
+        await call.answer("Ruxsat berilmagan.", show_alert=True)
+        return
+
+    test_id = call.data.split(":", 2)[2]
+    test = TESTS.get(test_id)
+    if not test:
+        await call.answer("Test topilmadi.", show_alert=True)
+        return
+
+    confirm_kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Ha, o'chirilsin", callback_data=f"adm:confirm_del:{test_id}"),
+                InlineKeyboardButton(text="❌ Yo'q, bekor qilish", callback_data="adm:list"),
+            ]
+        ]
+    )
+    await call.message.edit_text(
+        f"⚠ Haqiqatan ham <b>\"{html.escape(test['nomi'])}\"</b> testini o'chirmoqchimisiz?\n"
+        "Bu amalni ortga qaytarib bo'lmaydi!",
+        reply_markup=confirm_kb,
+    )
+    await call.answer()
+
+
+@dp.callback_query(F.data.startswith("adm:confirm_del:"))
+async def cb_admin_confirm_del(call: CallbackQuery) -> None:
+    if not (call.from_user and call.from_user.id in ADMIN_IDS):
+        await call.answer("Ruxsat berilmagan.", show_alert=True)
+        return
+
+    test_id = call.data.split(":", 2)[2]
+    target_file = TESTS_DIR / f"{test_id}.json"
+
+    if target_file.exists():
+        try:
+            target_file.unlink()
+        except Exception as e:
+            await call.answer(f"O'chirishda xatolik: {e}", show_alert=True)
+            return
+
+    load_tests()
+    await call.answer("Test o'chirildi!", show_alert=True)
+    await cb_admin_list(call)
+
+
+@dp.callback_query(F.data == "adm:stats")
+async def cb_admin_stats(call: CallbackQuery) -> None:
+    if not (call.from_user and call.from_user.id in ADMIN_IDS):
+        await call.answer("Ruxsat berilmagan.", show_alert=True)
+        return
+
+    with get_db() as conn:
+        users = conn.execute("SELECT COUNT(DISTINCT user_id) FROM natijalar").fetchone()[0]
+        total = conn.execute("SELECT COUNT(*) FROM natijalar").fetchone()[0]
+
+    back_kb = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="🔙 Orqaga", callback_data="adm:menu")]]
+    )
+    await call.message.edit_text(
+        f"📈 <b>Bot Statistikasi</b>\n\n"
+        f"👤 Test yechgan o'quvchilar: <b>{users}</b> ta\n"
+        f"📝 Jami urinishlar: <b>{total}</b> marta\n"
+        f"📚 Mavjud testlar soni: <b>{len(TESTS)}</b> ta",
+        reply_markup=back_kb,
+    )
+    await call.answer()
+
+
+@dp.callback_query(F.data == "adm:reload")
+async def cb_admin_reload(call: CallbackQuery) -> None:
+    if not (call.from_user and call.from_user.id in ADMIN_IDS):
+        await call.answer("Ruxsat berilmagan.", show_alert=True)
+        return
+
+    load_admins()
+    errors = load_tests()
+    msg = f"🔄 <b>{len(TESTS)} ta test</b> va adminlar ro'yxati qayta yuklandi."
+    if errors:
+        msg += "\n\n⚠ Xatolar:\n" + "\n".join(html.escape(e) for e in errors)
+
+    await call.answer("Qayta yuklandi!", show_alert=False)
+    back_kb = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="🔙 Orqaga", callback_data="adm:menu")]]
+    )
+    await call.message.edit_text(msg, reply_markup=back_kb)
+
+
+@dp.callback_query(F.data == "adm:close")
+async def cb_admin_close(call: CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    try:
+        await call.message.delete()
+    except TelegramBadRequest:
+        await call.message.edit_text("Boshqaruv paneli yopildi.")
+    await call.answer()
+
+
+@dp.callback_query(F.data == "noop")
+async def cb_noop(call: CallbackQuery) -> None:
+    await call.answer()
+
+
+# --- Buyruqlar --------------------------------------------------------------
 @dp.message(Command("yangilash"))
 async def cmd_reload(message: Message) -> None:
     if not is_admin(message):
