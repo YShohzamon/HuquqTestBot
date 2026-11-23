@@ -1,0 +1,16 @@
+[Unit]
+Description=Huquq Test Telegram Boti
+After=network.target
+
+[Service]
+Type=simple
+User=root
+# Quyidagi yo'llarni serveringizdagi haqiqiy yo'l bilan almashtiring:
+WorkingDirectory=/root/huquq_test_bot
+ExecStart=/root/huquq_test_bot/venv/bin/python bot.py
+Restart=always
+RestartSec=5
+EnvironmentFile=/root/huquq_test_bot/.env
+
+[Install]
+WantedBy=multi-user.target

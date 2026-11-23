@@ -1,0 +1,39 @@
+{
+  "nomi": "Konstitutsiya — namuna test",
+  "vaqt_daqiqa": 10,
+  "savollar": [
+    {
+      "savol": "O'zbekiston Respublikasining yangi tahrirdagi Konstitutsiyasi qanday yo'l bilan qabul qilingan?",
+      "variantlar": [
+        "Oliy Majlis qarori bilan",
+        "Referendum orqali",
+        "Prezident farmoni bilan",
+        "Konstitutsiyaviy sud qarori bilan"
+      ],
+      "togri": 1,
+      "izoh": "Yangi tahrirdagi Konstitutsiya 2023-yil 30-aprelda referendum orqali qabul qilingan."
+    },
+    {
+      "savol": "O'zbekiston Respublikasining davlat tili qaysi?",
+      "variantlar": [
+        "O'zbek tili",
+        "O'zbek va rus tillari",
+        "Qoraqalpoq tili",
+        "Davlat tili belgilanmagan"
+      ],
+      "togri": 0,
+      "izoh": "Konstitutsiyaga ko'ra, O'zbekiston Respublikasining davlat tili o'zbek tilidir."
+    },
+    {
+      "savol": "O'zbekiston Respublikasi Prezidenti necha yil muddatga saylanadi?",
+      "variantlar": [
+        "4 yil",
+        "5 yil",
+        "6 yil",
+        "7 yil"
+      ],
+      "togri": 3,
+      "izoh": "Yangi tahrirdagi Konstitutsiyaga ko'ra Prezident 7 yil muddatga saylanadi."
+    }
+  ]
+}

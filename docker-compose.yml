@@ -1,0 +1,17 @@
+services:
+  huquq_test_bot:
+    build: .
+    container_name: huquq_test_bot
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      # Natijalar bazasi, testlar va adminlar ro'yxati host bilan sinxronlashadi
+      - ./data:/app/data
+      - ./tests:/app/tests
+      - ./admins.txt:/app/admins.txt
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

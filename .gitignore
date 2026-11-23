@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Muhit va maxfiy ma'lumotlar
+.env
+*.local
+
+# Ma'lumotlar bazasi (Serverda saqlanadi, Gitga tushmaydi)
+data/*.db
+data/*.db-wal
+data/*.db-shm
+natijalar.db*
+*.sqlite3
+!data/.gitkeep
+
+# Jurnallar (Logs)
+*.log
+
+# IDE va tahrirlovchilar
+.vscode/
+.idea/
+*.swp
+*.swo
