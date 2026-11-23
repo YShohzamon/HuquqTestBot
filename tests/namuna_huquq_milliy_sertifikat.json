@@ -1,0 +1,62 @@
+{
+  "nomi": "Huquq — Milliy Sertifikat (Namuna test)",
+  "vaqt_daqiqa": 15,
+  "savollar": [
+    {
+      "savol": "Fuqarolik qonunchiligiga ko'ra, umumiy da'vo muddati necha yil qilib belgilangan?",
+      "variantlar": [
+        "1 yil",
+        "2 yil",
+        "3 yil",
+        "5 yil",
+        "10 yil"
+      ],
+      "togri": 2,
+      "izoh": "O'zbekiston Respublikasi Fuqarolik kodeksining 150-moddasiga ko'ra, umumiy da'vo muddati — uch yil."
+    },
+    {
+      "savol": "Xodim o'z xohishiga ko'ra mehnat shartnomasini bekor qilish haqida ish beruvchini necha kun oldin yozma ravishda ogohlantirishi lozim?",
+      "variantlar": [
+        "7 kun",
+        "10 kun",
+        "14 kun (2 hafta)",
+        "1 oy"
+      ],
+      "togri": 2,
+      "izoh": "Yangi tahrirdagi Mehnat kodeksining 160-moddasiga binoan, xodim mehnat shartnomasini o'z tashabbusiga ko'ra bekor qilish to'g'risida ish beruvchini ikki hafta oldin yozma shaklda ogohlantirishga haqli."
+    },
+    {
+      "savol": "O'zbekiston Respublikasi Jinoyat kodeksiga binoan umumiy jinoiy javobgarlikka tortish yoshi nechadan boshlanadi?",
+      "variantlar": [
+        "14 yoshdan",
+        "16 yoshdan",
+        "18 yoshdan",
+        "21 yoshdan"
+      ],
+      "togri": 1,
+      "izoh": "Jinoyat kodeksining 17-moddasiga asosan, jinoyat sodir etgunga qadar 16 yoshga to'lgan aql-hushi joyida bo'lgan jismoniy shaxslar javobgarlikka tortiladilar (og'irlashtiruvchi ayrim jinoyatlar uchun esa 14 yoshdan)."
+    },
+    {
+      "savol": "Fuqaro qaysi yoshga to'lgach, o'z harakatlari bilan to'liq hajmda fuqarolik huquqlariga ega bo'lish va majburiyatlarni bajarish (to'liq muomala layoqati) vujudga keladi?",
+      "variantlar": [
+        "14 yosh",
+        "16 yosh",
+        "18 yosh",
+        "21 yosh"
+      ],
+      "togri": 2,
+      "izoh": "Fuqarolik kodeksining 22-moddasiga muvofiq, to'liq hajmda fuqarolik muomala layoqati voyaga yetish, ya'ni o'n sakkiz yoshga to'lish bilan vujudga keladi."
+    },
+    {
+      "savol": "O'zbekiston Respublikasida sud hokimiyati kimlar tomonidan amalga oshiriladi?",
+      "variantlar": [
+        "Faqat qonun bilan belgilangan sudlar tomonidan",
+        "Sudlar va Adliya vazirligi tomonidan",
+        "Sudlar va Bosh prokuratura tomonidan",
+        "Prezident administratsiyasi tomonidan"
+      ],
+      "togri": 0,
+      "izoh": "Konstitutsiyaning 130-moddasiga asosan, O'zbekiston Respublikasida sud hokimiyati faqat qonun bilan tashkil etiladigan sudlar tomonidan amalga oshiriladi. Favqulodda sudlar tuzishga yo'l qo'yilmaydi."
+    }
+  ]
+}
